@@ -7,7 +7,7 @@ A comprehensive web application for tracking and analyzing Meteora Liquidity Boo
 ### 📊 LB Pair Analytics
 - **Real-time Data**: Fetches live data from Meteora DLMM API
 - **Comprehensive Metrics**: Displays liquidity, 24h volume, fees, APR, bin step, and base fee
-- **Smart Sorting**: Multiple sorting options (fees, liquidity, volume, APR, name, bin step, base fee)
+- **Smart Sorting**: Multiple sorting options (fees, liquidity, volume, APR, name, bin step, base fee, 30min fee/TVL ratio)
 - **Advanced Filtering**: Search by name/address, filter by minimum liquidity and volume
 - **Pagination**: Configurable items per page (10, 25, 50, 100)
 
@@ -83,7 +83,14 @@ meteora-tracker/
 - **Search**: Enter pair name or address
 - **Min Liquidity**: Filter pairs with minimum liquidity threshold
 - **Min 24h Volume**: Filter pairs with minimum volume threshold
-- **Sort Options**: Click buttons to sort by different metrics
+- **Sort Options**: Click buttons to sort by different metrics:
+  - **Liquidity**: Total value locked in the pool
+  - **24h Volume**: Trading volume in the last 24 hours
+  - **24h Fees**: Fees generated in the last 24 hours
+  - **APR**: Annual percentage rate
+  - **Bin Step**: Price step between bins
+  - **Base Fee**: Base fee percentage
+  - **30min Fee/TVL**: 🔥 **NEW** - Fee to TVL ratio in the last 30 minutes (best for finding hot pools)
 - **Items per Page**: Choose how many pairs to display
 
 #### 3. **Wallet PNL Analysis**
@@ -107,6 +114,28 @@ meteora-tracker/
 #### 3. **Portfolio Viewing**
 - Click any wallet address to view portfolio on LP Agent
 - Opens in new tab for seamless experience
+
+## 🧠 智能数据加载
+
+### 工作原理
+应用采用智能数据加载策略，按以下优先级获取钱包数据：
+
+1. **🔍 检查本地文件**: 首先尝试读取 `dune_data.json`
+2. **📡 API 获取**: 如果本地文件不存在，自动从 Dune API 获取
+3. **💾 自动保存**: API 获取成功后，自动下载数据文件供下次使用
+4. **⚡ 即时加载**: 数据获取后立即处理并显示
+
+### 配置选项
+```javascript
+const DEVELOPMENT_MODE = true;  // 启用智能模式
+const DUNE_API_KEY = 'your_api_key_here';  // 你的 Dune API Key
+const DUNE_QUERY_ID = 5545533;  // Dune 查询 ID
+```
+
+### 使用场景
+- **首次使用**: 没有本地文件时，自动从 API 获取
+- **数据更新**: 删除本地文件后重新获取最新数据
+- **离线使用**: 有本地文件时，无需网络连接
 
 ## 🔧 Configuration
 
@@ -160,10 +189,11 @@ let sortOrder = 'desc'; // Descending order
 
 ## 🎯 Key Features Explained
 
-### Smart Data Loading
-- **Fallback System**: Local file → API → Error handling
-- **Caching**: Wallet data persists during session
-- **Rate Limiting**: Built-in delays to respect API limits
+### 🧠 Smart Data Loading
+- **智能加载策略**: 本地文件 → Dune API → 错误处理
+- **自动下载**: API 获取数据后自动下载到本地
+- **会话缓存**: 钱包数据在会话期间持久化
+- **API 限制**: 内置延迟以遵守 API 限制
 
 ### Advanced Filtering
 - **Real-time Search**: Instant filtering as you type
