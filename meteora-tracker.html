@@ -76,7 +76,7 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=50&sort_key=feetvlratio12h&hide_low_tvl=200`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=50&sort_key=feetvlratio30m&hide_low_tvl=200`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
@@ -158,8 +158,8 @@
         // 部署配置
         const DEVELOPMENT_MODE = true; // 启用智能数据加载：本地文件 → API 获取
         const DATA_FILE_PATH = './dune_data.json'; // 本地数据文件路径
-        const DUNE_API_KEY = 'your dune api key'; // 你的 Dune API Key
-        const DUNE_QUERY_ID = 5574931; // Dune 查询 ID
+        const DUNE_API_KEY = 'your api key'; // 你的 Dune API Key
+        const DUNE_QUERY_ID = 'dune id'; // Dune 查询 ID
 
         // Dune API 配置
         const options = {method: 'GET', headers: {'X-DUNE-API-KEY': DUNE_API_KEY}};
