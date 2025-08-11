@@ -34,7 +34,7 @@
         // 分页和筛选状态
         let currentPage = 1;
         let itemsPerPage = 10;
-        let sortBy = 'fees'; // liquidity, volume, fees, apr, name, bin_step, base_fee_percentage, fee_tvl_30min
+        let sortBy = 'fee_tvl_30min'; // liquidity, volume, fees, apr, name, bin_step, base_fee_percentage, fee_tvl_30min
         let sortOrder = 'desc'; // asc, desc
         let searchTerm = '';
         let minLiquidity = 0;
@@ -70,32 +70,48 @@
             }
         };
 
-        // 获取第一页 LB Pairs 数据
+        // 获取 LB Pairs 数据 - 一次性获取所有数据
         const fetchLbPairs = async () => {
             loading = true;
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=50&sort_key=feetvlratio30m&hide_low_tvl=200`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_by_groups?page=0&limit=20&sort_key=feetvlratio30m&hide_low_tvl=200`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
 
-                if (response.pairs && response.pairs.length > 0) {
-                    lbPairs = response.pairs;
-                    console.log('Fetched LB pairs:', lbPairs.length);
+                console.log('📊 API Response:', response);
+
+                if (response.groups && response.groups.length > 0) {
+                    // 从 groups 中提取所有 pairs
+                    lbPairs = [];
+                    response.groups.forEach(group => {
+                        if (group.pairs && group.pairs.length > 0) {
+                            lbPairs = lbPairs.concat(group.pairs);
+                        }
+                    });
+
+                    console.log('✅ Fetched LB pairs:', lbPairs.length);
+                    console.log('📊 Total groups:', response.groups.length);
+                    console.log('� Pre-sorted by 30min Fee/TVL ratio (highest first)');
+                    console.log('� Filtered: TVL ≥ $200');
                     applyFiltersAndSort(); // 应用筛选和排序
                 } else {
-                    console.warn('No pairs found in response');
+                    console.warn('⚠️ No groups or pairs found in response');
                     lbPairs = [];
+
                 }
             } catch (error) {
-                console.error('Failed to fetch LB pairs:', error);
+                console.error('❌ Failed to fetch LB pairs:', error);
+                alert('Failed to fetch LB pairs. Please check your network connection and try again.');
             } finally {
                 loading = false;
                 render();
             }
         };
+
+
 
         // 处理 Dune 数据格式的通用函数
         const processDuneData = (data) => {
@@ -159,7 +175,7 @@
         const DEVELOPMENT_MODE = true; // 启用智能数据加载：本地文件 → API 获取
         const DATA_FILE_PATH = './dune_data.json'; // 本地数据文件路径
         const DUNE_API_KEY = 'your api key'; // 你的 Dune API Key
-        const DUNE_QUERY_ID = 'dune id'; // Dune 查询 ID
+        const DUNE_QUERY_ID = 'your query id'; // Dune 查询 ID
 
         // Dune API 配置
         const options = {method: 'GET', headers: {'X-DUNE-API-KEY': DUNE_API_KEY}};
@@ -1156,6 +1172,8 @@
                                     </button>
                                 </div>
                             </div>
+
+
                         `}
                     </div>
                 </div>
