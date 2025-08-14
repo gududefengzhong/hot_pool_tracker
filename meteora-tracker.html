@@ -1286,64 +1286,7 @@
                                 ${currentPageData.map(pair => renderPair(pair)).join('')}
                             </div>
 
-                            <!-- 底部分页 -->
-                            ${totalPages > 1 ? `
-                                <div class="bg-white rounded-lg shadow-lg p-4 mt-6">
-                                    <div class="flex justify-center items-center gap-2">
-                                        <button
-                                            onclick="changePageOnly(1)"
-                                            ${currentPage === 1 ? 'disabled' : ''}
-                                            class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            First
-                                        </button>
-                                        <button
-                                            onclick="changePageOnly(${currentPage - 1})"
-                                            ${currentPage === 1 ? 'disabled' : ''}
-                                            class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Previous
-                                        </button>
 
-                                        ${Array.from({length: Math.min(5, totalPages)}, (_, i) => {
-                                            let pageNum;
-                                            if (totalPages <= 5) {
-                                                pageNum = i + 1;
-                                            } else if (currentPage <= 3) {
-                                                pageNum = i + 1;
-                                            } else if (currentPage >= totalPages - 2) {
-                                                pageNum = totalPages - 4 + i;
-                                            } else {
-                                                pageNum = currentPage - 2 + i;
-                                            }
-
-                                            return `
-                                                <button
-                                                    onclick="changePageOnly(${pageNum})"
-                                                    class="px-3 py-1 text-sm rounded ${pageNum === currentPage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
-                                                >
-                                                    ${pageNum}
-                                                </button>
-                                            `;
-                                        }).join('')}
-
-                                        <button
-                                            onclick="changePageOnly(${currentPage + 1})"
-                                            ${currentPage === totalPages ? 'disabled' : ''}
-                                            class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Next
-                                        </button>
-                                        <button
-                                            onclick="changePageOnly(${totalPages})"
-                                            ${currentPage === totalPages ? 'disabled' : ''}
-                                            class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        >
-                                            Last
-                                        </button>
-                                    </div>
-                                </div>
-                            ` : ''}
 
                             <!-- 底部三卡片布局 -->
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
