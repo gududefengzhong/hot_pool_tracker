@@ -175,6 +175,7 @@
                     console.log('Processed wallet data:', walletData);
                     console.log('Total pairs with wallets:', Object.keys(walletData).length);
                     console.log('Has wallet data:', hasWalletData);
+                    applyFiltersAndSort(); // 重新应用筛选，包括钱包数据筛选
                     render();
                     return true; // 成功读取本地文件
                 }
@@ -189,7 +190,7 @@
         const DEVELOPMENT_MODE = true; // Enable smart data loading: Local file → API fallback
         const DATA_FILE_PATH = './dune_data.json'; // Local data file path
         const DUNE_API_KEY = 'YOUR DUNE API KEY'; // Your Dune API Key
-        const DUNE_QUERY_ID = 'YOUR QUERY ID'; // Dune Query ID
+        const DUNE_QUERY_ID = 'YOUR DUNE QUERY ID'; // Dune Query ID
 
         // Dune API 配置
         const options = {method: 'GET', headers: {'X-DUNE-API-KEY': DUNE_API_KEY}};
@@ -246,6 +247,7 @@
                 console.log('📈 Total pairs with wallets:', Object.keys(walletData).length);
                 console.log('✅ Has wallet data:', hasWalletData);
 
+                applyFiltersAndSort(); // 重新应用筛选，包括钱包数据筛选
                 render();
             } catch (error) {
                 console.error('❌ Failed to fetch Dune data from API:', error);
