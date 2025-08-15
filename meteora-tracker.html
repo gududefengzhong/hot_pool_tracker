@@ -37,7 +37,7 @@
         // 分页和筛选状态
         let currentPage = 1;
         let itemsPerPage = 10;
-        let sortBy = 'fee_tvl_12h'; // liquidity, volume, fees, apr, name, bin_step, base_fee_percentage, fee_tvl_12h
+        let sortBy = 'fee_tvl_30min'; // liquidity, volume, fees, apr, name, bin_step, base_fee_percentage, fee_tvl_30min
         let sortOrder = 'desc'; // asc, desc
         let searchTerm = '';
         let minLiquidity = 0;
@@ -79,7 +79,7 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_by_groups?page=0&limit=20&sort_key=feetvlratio12h&hide_low_tvl=500`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_by_groups?page=0&limit=30&sort_key=feetvlratio30m&hide_low_tvl=500`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
@@ -97,7 +97,7 @@
 
                     console.log('✅ Fetched LB pairs:', lbPairs.length);
                     console.log('📊 Total groups:', response.groups.length);
-                    console.log('🔥 Pre-sorted by 12h Fee/TVL ratio (highest first)');
+                    console.log('🔥 Pre-sorted by 30min Fee/TVL ratio (highest first)');
                     console.log('� Filtered: TVL ≥ $200');
                     applyFiltersAndSort(); // 应用筛选和排序
                 } else {
@@ -189,8 +189,8 @@
         // 部署配置
         const DEVELOPMENT_MODE = true; // Enable smart data loading: Local file → API fallback
         const DATA_FILE_PATH = './dune_data.json'; // Local data file path
-        const DUNE_API_KEY = 'YOUR DUNE API KEY'; // Your Dune API Key
-        const DUNE_QUERY_ID = 'YOUR DUNE QUERY ID'; // Dune Query ID
+        const DUNE_API_KEY = 'DUNE_API_KEY'; // Your Dune API Key
+        const DUNE_QUERY_ID = 'DUNE_QUERY_ID'; // Dune Query ID
 
         // Dune API 配置
         const options = {method: 'GET', headers: {'X-DUNE-API-KEY': DUNE_API_KEY}};
@@ -555,9 +555,9 @@
                         valueA = parseFloat(a.base_fee_percentage) || 0;
                         valueB = parseFloat(b.base_fee_percentage) || 0;
                         break;
-                    case 'fee_tvl_12h':
-                        valueA = (a.fee_tvl_ratio && a.fee_tvl_ratio.hour_12) || 0;
-                        valueB = (b.fee_tvl_ratio && b.fee_tvl_ratio.hour_12) || 0;
+                    case 'fee_tvl_30min':
+                        valueA = (a.fee_tvl_ratio && a.fee_tvl_ratio.min_30) || 0;
+                        valueB = (b.fee_tvl_ratio && b.fee_tvl_ratio.min_30) || 0;
                         break;
                     default:
                         valueA = parseFloat(a.liquidity);
@@ -973,8 +973,8 @@
                                 <span class="font-semibold text-pink-600">${pair.base_fee_percentage ? parseFloat(pair.base_fee_percentage).toFixed(3) + '%' : 'N/A'}</span>
                             </span>
                             <span class="bg-orange-50 px-2 py-1 rounded">
-                                <span class="text-gray-500">12h Fee/TVL:</span>
-                                <span class="font-semibold text-orange-600">${pair.fee_tvl_ratio?.hour_12 ? pair.fee_tvl_ratio.hour_12.toFixed(2) + '%' : 'N/A'}</span>
+                                <span class="text-gray-500">30min Fee/TVL:</span>
+                                <span class="font-semibold text-orange-600">${pair.fee_tvl_ratio?.min_30 ? pair.fee_tvl_ratio.min_30.toFixed(2) + '%' : 'N/A'}</span>
                             </span>
                         </div>
                     </div>
@@ -1224,10 +1224,10 @@
                                     Base Fee ${sortBy === 'base_fee_percentage' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
                                 </button>
                                 <button
-                                    onclick="updateSort('fee_tvl_12h')"
-                                    class="px-3 py-1 text-sm rounded-md ${sortBy === 'fee_tvl_12h' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'} hover:bg-blue-600 hover:text-white"
+                                    onclick="updateSort('fee_tvl_30min')"
+                                    class="px-3 py-1 text-sm rounded-md ${sortBy === 'fee_tvl_30min' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700'} hover:bg-blue-600 hover:text-white"
                                 >
-                                    12h Fee/TVL ${sortBy === 'fee_tvl_12h' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
+                                    30min Fee/TVL ${sortBy === 'fee_tvl_30min' ? (sortOrder === 'asc' ? '↑' : '↓') : ''}
                                 </button>
                             </div>
                         </div>
