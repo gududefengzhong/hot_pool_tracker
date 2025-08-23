@@ -84,29 +84,18 @@
                     return res.json();
                 });
 
-                console.log('📊 API Response:', response);
-
                 if (response.groups && response.groups.length > 0) {
-                    // 从 groups 中提取所有 pairs
                     lbPairs = [];
                     response.groups.forEach(group => {
                         if (group.pairs && group.pairs.length > 0) {
                             lbPairs = lbPairs.concat(group.pairs);
                         }
                     });
-
-                    console.log('✅ Fetched LB pairs:', lbPairs.length);
-                    console.log('📊 Total groups:', response.groups.length);
-                    console.log('🔥 Pre-sorted by 30min Fee/TVL ratio (highest first)');
-                    console.log('� Filtered: TVL ≥ $200');
-                    applyFiltersAndSort(); // 应用筛选和排序
+                    applyFiltersAndSort();
                 } else {
-                    console.warn('⚠️ No groups or pairs found in response');
                     lbPairs = [];
-
                 }
             } catch (error) {
-                console.error('❌ Failed to fetch LB pairs:', error);
                 alert('Failed to fetch LB pairs. Please check your network connection and try again.');
             } finally {
                 loading = false;
@@ -129,6 +118,10 @@
                         const [pair, wallet] = row.split('/');
                         lbPair = pair;
                         wallets = [wallet];
+                    } else if (typeof row === 'object' && row.contract_identifier && row.participant_collection) {
+                        // 最新格式：contract_identifier + participant_collection
+                        lbPair = row.contract_identifier;
+                        wallets = Array.isArray(row.participant_collection) ? row.participant_collection : [row.participant_collection];
                     } else if (typeof row === 'object' && row.lbPair && row.wallet) {
                         // 旧格式：对象，单个钱包
                         lbPair = row.lbPair;
@@ -138,7 +131,6 @@
                         lbPair = row.lbPair;
                         wallets = Array.isArray(row.wallet_array) ? row.wallet_array : [row.wallet_array];
                     } else {
-                        console.warn('Unknown row format:', row);
                         return;
                     }
 
@@ -164,106 +156,34 @@
                 const response = await fetch(DATA_FILE_PATH);
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('Loaded data from local file:', data);
-
                     const processedData = processDuneData(data);
-
                     walletData = processedData;
-                    // 只有当实际获取到钱包数据时才标记为已加载
                     const hasWalletData = Object.keys(processedData).length > 0;
                     walletDataLoaded = hasWalletData;
-                    console.log('Processed wallet data:', walletData);
-                    console.log('Total pairs with wallets:', Object.keys(walletData).length);
-                    console.log('Has wallet data:', hasWalletData);
                     applyFiltersAndSort(); // 重新应用筛选，包括钱包数据筛选
                     render();
                     return true; // 成功读取本地文件
                 }
                 return false; // 本地文件不存在或读取失败
             } catch (error) {
-                console.log('Local file not found, will fetch from API:', error);
                 return false;
             }
         };
 
-        // 部署配置
-        const DEVELOPMENT_MODE = true; // Enable smart data loading: Local file → API fallback
+        // 配置
         const DATA_FILE_PATH = './dune_data.json'; // Local data file path
-        const DUNE_API_KEY = 'DUNE_API_KEY'; // Your Dune API Key
-        const DUNE_QUERY_ID = 'DUNE_QUERY_ID'; // Dune Query ID
 
-        // Dune API 配置
-        const options = {method: 'GET', headers: {'X-DUNE-API-KEY': DUNE_API_KEY}};
 
-        // 下载数据文件到本地
-        const downloadDuneData = (data) => {
-            try {
-                const dataStr = JSON.stringify(data, null, 2);
-                const blob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
 
-                // 创建下载链接
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'dune_data.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
 
-                console.log('Dune data downloaded as dune_data.json');
-                alert('Data downloaded as dune_data.json. Please move this file to your project directory and refresh the page.');
-            } catch (error) {
-                console.error('Failed to download data file:', error);
-                alert('Failed to download data file. Please check the console for errors.');
-            }
-        };
-
-        // 从 Dune API 获取数据
-        const fetchDuneDataFromAPI = async () => {
-            try {
-                console.log('🔄 Fetching data from Dune API...');
-                const response = await fetch(`https://api.dune.com/api/v1/query/${DUNE_QUERY_ID}/results`, options);
-
-                if (!response.ok) {
-                    throw new Error(`Dune API error: ${response.status} ${response.statusText}`);
-                }
-
-                const data = await response.json();
-                console.log('✅ Successfully fetched data from Dune API');
-
-                // 自动下载数据文件供下次使用
-                downloadDuneData(data);
-
-                // 处理并加载数据
-                const processedData = processDuneData(data);
-                walletData = processedData;
-
-                // 只有当实际获取到钱包数据时才标记为已加载
-                const hasWalletData = Object.keys(processedData).length > 0;
-                walletDataLoaded = hasWalletData;
-
-                console.log('📊 Processed wallet data from API:', walletData);
-                console.log('📈 Total pairs with wallets:', Object.keys(walletData).length);
-                console.log('✅ Has wallet data:', hasWalletData);
-
-                applyFiltersAndSort(); // 重新应用筛选，包括钱包数据筛选
-                render();
-            } catch (error) {
-                console.error('❌ Failed to fetch Dune data from API:', error);
-                alert(`❌ Failed to fetch data from Dune API\n\nError: ${error.message}\n\nPlease check:\n1. API Key is correct\n2. Network connection\n3. Dune API quota`);
-            }
-        };
 
         // 数据获取逻辑
         const fetchDuneData = async () => {
             if (walletDataLoading) {
-                console.log('Wallet data is already loading...');
                 return;
             }
 
             if (walletDataLoaded && Object.keys(walletData).length > 0) {
-                console.log('Wallet data already loaded');
                 return;
             }
 
@@ -271,19 +191,10 @@
             render(); // 更新UI显示加载状态
 
             try {
-                // 1. 优先尝试本地文件
+                // 尝试从本地文件加载数据
                 const localDataLoaded = await loadLocalDuneData();
-                if (localDataLoaded) {
-                    return;
-                }
-
-                // 2. 如果没有本地文件，则从 Dune API 获取
-                if (DEVELOPMENT_MODE) {
-                    console.log('📡 Local file not found, fetching from Dune API...');
-                    await fetchDuneDataFromAPI();
-                } else {
-                    console.error('❌ No local dune_data.json file found and API mode disabled.');
-                    alert('⚠️ Local data file dune_data.json not found\n\nPlease ensure:\n1. File is in project root directory\n2. Or enable DEVELOPMENT_MODE to fetch from API');
+                if (!localDataLoaded) {
+                    alert('⚠️ Data not available\n\nThe pool data is currently being updated. Please try again in a few moments, or contact the administrator if this issue persists.');
                 }
             } finally {
                 walletDataLoading = false;
@@ -310,7 +221,6 @@
                     lbPair
                 };
             } catch (error) {
-                console.error(`Failed to fetch PNL for ${wallet} on ${lbPair}:`, error);
                 pnlData[key] = {
                     error: true,
                     wallet,
@@ -572,7 +482,7 @@
             });
 
             filteredPairs = filtered;
-            currentPage = 1; // 重置到第一页
+            currentPage = 1;
         };
 
         // 获取当前页的数据
@@ -893,19 +803,8 @@
                     ` : `
                         <div class="text-gray-500 text-center py-8">
                             <div class="mb-2">
-                                ${walletDataLoaded ? 'No wallet data available for this LB pair' : 'Wallet data not loaded yet'}
+                                ${walletDataLoading ? 'Loading wallet data...' : 'No wallet data available for this LB pair'}
                             </div>
-                            ${!walletDataLoaded ? `
-                                <div class="text-sm">
-                                    <button
-                                        onclick="fetchDuneData()"
-                                        ${walletDataLoading ? 'disabled' : ''}
-                                        class="px-3 py-1 ${walletDataLoading ? 'bg-yellow-500' : 'bg-blue-500 hover:bg-blue-600'} text-white rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        ${walletDataLoading ? 'Loading...' : 'Load Wallet Data'}
-                                    </button>
-                                </div>
-                            ` : ''}
                         </div>
                     `}
                 </div>
@@ -1088,6 +987,8 @@
                                     <p class="text-gray-600 mb-4">
                                         Professional Meteora liquidity mining analysis tool that transparently displays real P&L data and participant information for each pool, helping LP traders of all levels develop better strategies.
                                     </p>
+
+
 
                                     <div class="space-y-3">
                                         <!-- Beginner LP -->
