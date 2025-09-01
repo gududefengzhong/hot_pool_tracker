@@ -79,18 +79,13 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_by_groups?page=0&limit=30&sort_key=feetvlratio30m&hide_low_tvl=500`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=20&sort_key=feetvlratio12h&hide_low_tvl=5000`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
 
-                if (response.groups && response.groups.length > 0) {
-                    lbPairs = [];
-                    response.groups.forEach(group => {
-                        if (group.pairs && group.pairs.length > 0) {
-                            lbPairs = lbPairs.concat(group.pairs);
-                        }
-                    });
+                if (response.pairs && response.pairs.length > 0) {
+                    lbPairs = response.pairs;
                     applyFiltersAndSort();
                 } else {
                     lbPairs = [];
@@ -102,8 +97,6 @@
                 render();
             }
         };
-
-
 
         // 处理 Dune 数据格式的通用函数
         const processDuneData = (data) => {
@@ -172,10 +165,6 @@
 
         // 配置
         const DATA_FILE_PATH = './dune_data.json'; // Local data file path
-
-
-
-
 
         // 数据获取逻辑
         const fetchDuneData = async () => {
@@ -339,12 +328,6 @@
             filter.currentPage = 1; // 重置到第一页
             render();
         };
-
-
-
-
-
-
 
         // 更新钱包排序
         const updateWalletSort = (pairAddress, newSortBy) => {
@@ -634,8 +617,6 @@
                 updateResultsOnly();
             }
         };
-
-
 
         // 更改每页显示数量
         const changeItemsPerPage = (newItemsPerPage) => {
@@ -946,10 +927,6 @@
 
                             <div class="flex gap-4 mb-6">
 
-
-
-
-
                             </div>
 
                             <div id="stats-container" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -971,8 +948,6 @@
                                 </div>
                             </div>
                         </div>
-
-
 
                         <!-- 网站功能描述 -->
                         <div class="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg shadow-lg p-6 mb-6 border border-blue-100">
