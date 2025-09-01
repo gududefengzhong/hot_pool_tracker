@@ -79,7 +79,7 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=20&sort_key=feetvlratio30m&hide_low_tvl=5000`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=10&sort_key=feetvlratio30m&hide_low_tvl=3000`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
