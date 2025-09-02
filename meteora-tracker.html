@@ -1060,22 +1060,6 @@
                                     </select>
                                 </div>
                             </div>
-
-                            <!-- 钱包数据筛选选项 -->
-                            <div class="mb-4">
-                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
-                                    <input
-                                        type="checkbox"
-                                        id="showOnlyWithWalletsCheckbox"
-                                        ${showOnlyWithWallets ? 'checked' : ''}
-                                        onchange="toggleShowOnlyWithWallets(this.checked)"
-                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    >
-                                    <span>Only show pools with wallet data</span>
-                                    <span class="text-xs text-gray-500">(${walletDataLoaded ? Object.keys(walletData).length : 0} pools have wallet data)</span>
-                                </label>
-                            </div>
-
                             <div class="flex flex-wrap gap-2">
 
                                 <button
