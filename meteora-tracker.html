@@ -79,7 +79,7 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=8&sort_key=feetvlratio12h&hide_low_tvl=10000`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=8&sort_key=feetvlratio30m&hide_low_tvl=3000`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
@@ -1059,6 +1059,21 @@
                                         <option value="100" ${itemsPerPage === 100 ? 'selected' : ''}>100</option>
                                     </select>
                                 </div>
+                            </div>
+
+                            <!-- 钱包数据筛选选项 -->
+                            <div class="mb-4">
+                                <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        id="showOnlyWithWalletsCheckbox"
+                                        ${showOnlyWithWallets ? 'checked' : ''}
+                                        onchange="toggleShowOnlyWithWallets(this.checked)"
+                                        class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    >
+                                    <span>Only show pools with wallet data</span>
+                                    <span class="text-xs text-gray-500">(${walletDataLoaded ? Object.keys(walletData).length : 0} pools have wallet data)</span>
+                                </label>
                             </div>
 
                             <div class="flex flex-wrap gap-2">
