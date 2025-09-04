@@ -70,7 +70,7 @@
                     if (i === maxRetries - 1) throw error;
                     await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
                 }
-            }
+            }g
         };
 
         // 获取 LB Pairs 数据 - 一次性获取所有数据
@@ -79,7 +79,7 @@
             render();
             try {
                 const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=8&sort_key=feetvlratio30m&hide_low_tvl=3000`);
+                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=30&sort_key=feetvlratio30m&hide_low_tvl=3000`);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
