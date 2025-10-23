@@ -1,76 +1,70 @@
-# Meteora LB Pair PNL Tracker
+# 🚀 Meteora LB Pair PNL Tracker
 
-A comprehensive web application for tracking and analyzing Meteora Liquidity Book (LB) pairs and their associated wallet PNL data. This tool provides real-time insights into liquidity pool performance and wallet profitability.
+Professional Meteora liquidity mining analysis tool that displays real P&L data and participant information for each pool.
 
-## 🚀 Features
+## 📖 Usage
 
-### 📊 LB Pair Analytics
-- **Real-time Data**: Fetches live data from Meteora DLMM API
-- **Comprehensive Metrics**: Displays liquidity, 24h volume, fees, APR, bin step, and base fee
-- **Smart Sorting**: Multiple sorting options (fees, liquidity, volume, APR, name, bin step, base fee, 30min fee/TVL ratio)
-- **Advanced Filtering**: Search by name/address, filter by minimum liquidity and volume
-- **Pagination**: Configurable items per page (10, 25, 50, 100)
+1. **Open**: `meteora-tracker.html` in your browser
+2. **Browse**: Meteora pools sorted by earning potential
+3. **Analyze**: Click pools to see wallet participants and their PnL
 
-### 💰 Wallet PNL Tracking
-- **Dune Integration**: Loads wallet data from Dune Analytics with local file fallback
-- **Individual PNL**: Fetch detailed PNL data for each wallet
-- **Wallet Filtering**: Search wallets and filter by minimum PNL
-- **Wallet Pagination**: Independent pagination for each pair's wallet list
-- **Portfolio Links**: Direct links to LP Agent portfolio viewer
+The app works entirely in your browser with live data from Meteora API.
 
-### 🔗 External Integrations
-- **Meteora App**: Click pair names to view on official Meteora platform
-- **LP Agent**: Click wallet addresses to view portfolios
-- **Dune Analytics**: Automated wallet data fetching with API key support
+## ✨ Features
 
-## 📁 File Structure
+- **Pool Rankings**: Pools sorted by earning potential (30min Fee/TVL ratio)
+- **Wallet Analysis**: See which wallets are in each pool and their PnL
+- **Real-time Data**: Live data from Meteora API
+- **Smart Filtering**: Search and filter pools by various criteria
+- **Portfolio Links**: Direct links to view wallets on LP Agent
 
+## 📁 What's Included
+
+- `meteora-tracker.html` - The main web application
+- `fetch_with_meteora.py` - 数据获取脚本（支持增量更新）
+- `push_data.py` - GitHub 自动推送脚本
+- `v2.svg` - App icon
+- `README.md` - This documentation
+
+## 🔄 增量更新功能
+
+### 智能数据更新
+现在支持智能增量更新，只获取新池子的数据：
+
+```bash
+# 增量更新（默认模式）- 只获取新池子数据
+python3 fetch_with_meteora.py --limit 20
+
+# 全量更新 - 重新获取所有池子数据
+python3 fetch_with_meteora.py --limit 20 --mode full
+
+# 自动推送到 GitHub
+python3 push_data.py
 ```
-meteora-tracker/
-├── meteora-tracker.html    # Main application file
-├── dune_data.json         # Local Dune data cache (optional)
-└── README.md             # This documentation
-```
 
-## 🛠️ Setup & Installation
+### 工作原理
+1. **检查现有数据**: 读取 `dune_data.json` 中已有的池子数据
+2. **获取 Meteora 列表**: 从 API 获取最新的池子列表
+3. **智能对比**: 找出需要更新的新池子
+4. **增量查询**: 只对新池子执行 Dune 查询
+5. **数据合并**: 将新数据与现有数据合并
+6. **自动保存**: 保存完整的合并结果
 
-### Prerequisites
-- Modern web browser (Chrome, Firefox, Safari, Edge)
-- Internet connection for API calls
-- **Dune Analytics API key (required for wallet data)** - Get yours at [dune.com](https://dune.com)
+### 优势
+- ⚡ **高效**: 避免重复查询已有数据
+- 💰 **省钱**: 减少 Dune API 调用次数
+- 🚀 **快速**: 只处理必要的新数据
+- 🔄 **智能**: 自动检测需要更新的内容
 
-### Quick Start
-1. **Download Files**
-   ```bash
-   git clone <repository-url>
-   cd meteora-tracker
-   ```
+## 🎯 Target Users
 
-2. **Configure Dune API Key (REQUIRED)**
-   ⚠️ **This step is mandatory for the application to work properly**
+- **Beginner LP Traders**: Get insights into profitable pools and earning potential
+- **Intermediate LP Traders**: Discover successful wallet strategies to copy
+- **Advanced LP Traders**: Analyze sophisticated patterns and extract logic
 
-   - Get your free API key from [Dune Analytics](https://dune.com)
-   - Open `meteora-tracker.html` in a text editor
-   - Find this line (around line 157):
-   ```javascript
-   const options = {method: 'GET', headers: {'X-DUNE-API-KEY': 'your dune api'}};
-   ```
-   - Replace `'your dune api'` with your actual API key:
-   ```javascript
-   const options = {method: 'GET', headers: {'X-DUNE-API-KEY': 'dqkFw8N3_your_actual_key_here'}};
-   ```
+---
 
-3. **Open Application**
-   - Double-click `meteora-tracker.html` to open in browser
-   - Or serve via local web server for better performance
-
-4. **Verify Setup**
-   - Open the application in your browser
-   - Click "Load Wallet Data" button
-   - Check browser console (F12) for any API errors
-   - If successful, you should see wallet data loading
-
-## 📖 Usage Guide
+**Happy LP Trading! 🌊💰**
 
 ### Main Interface
 
@@ -137,6 +131,23 @@ const DUNE_QUERY_ID = 5545533;  // Dune 查询 ID
 - **数据更新**: 删除本地文件后重新获取最新数据
 - **离线使用**: 有本地文件时，无需网络连接
 
+## 🔥 新 API 优势
+
+### 智能排序
+- **预排序数据**: API 直接返回按 30分钟 Fee/TVL 比率排序的数据
+- **热门池优先**: 最有潜力的池子排在最前面
+- **实时更新**: 数据实时反映市场热度
+
+### 质量过滤
+- **最低 TVL**: 自动过滤 TVL < $200 的小池子
+- **减少噪音**: 专注于有意义的流动性池
+- **提高效率**: 减少无效数据的处理
+
+### 高效分页
+- **一次性加载**: 获取所有符合条件的池子数据
+- **客户端分页**: 快速翻页，无需额外 API 请求
+- **性能优化**: 减少网络请求，提升用户体验
+
 ## 🔧 Configuration
 
 ### Dune Data Setup
@@ -149,12 +160,33 @@ Create `dune_data.json` with this structure:
     "rows": [
       {
         "lbPair": "2BYARaQtyAo22XRmdh3F5amfRr8pX7SUDTYMAMheetje",
-        "wallet": "HmnoD2K1A4J6g8cYPuo3pZoMzx96qRqvxCJmfL26Airx"
+        "wallet_array": [
+          "HmnoD2K1A4J6g8cYPuo3pZoMzx96qRqvxCJmfL26Airx",
+          "AnotherWalletAddressHere123456789",
+          "YetAnotherWalletAddress987654321"
+        ]
       }
     ]
   }
 }
 ```
+
+**New Dune SQL Format:**
+```sql
+SELECT
+    lb.lbPair,
+    array_agg(DISTINCT pc.evt_tx_signer) as wallet_array
+FROM lbpairs lb
+-- ... rest of your query
+```
+
+**Data Format Compatibility:**
+The application supports multiple Dune data formats:
+- ✅ **New Format**: `{lbPair: "...", wallet_array: ["wallet1", "wallet2", ...]}`
+- ✅ **Old Format**: `{lbPair: "...", wallet: "single_wallet"}`
+- ✅ **Legacy Format**: `"lbPair/wallet"` string format
+
+This ensures backward compatibility with existing data files.
 
 #### Option 2: API Configuration
 1. **Get Dune Analytics API key**
@@ -251,6 +283,10 @@ console.log(JSON.stringify(filteredPairs, null, 2));
 ## 📊 Data Sources
 
 - **Meteora DLMM API**: Live pair data and PNL information
+  - **API Endpoint**: `https://dlmm-api.meteora.ag/pair/all_by_groups`
+  - **Smart Sorting**: Pre-sorted by 30min Fee/TVL ratio (highest first)
+  - **Quality Filter**: Only shows pairs with TVL ≥ $200
+  - **One-time Load**: Fetches all data once, client-side pagination
 - **Dune Analytics**: Wallet-to-pair mappings
 - **LP Agent**: Portfolio visualization
 - **Meteora App**: Official pair interface
@@ -265,6 +301,54 @@ console.log(JSON.stringify(filteredPairs, null, 2));
 ## 📄 License
 
 This project is open source. Feel free to use, modify, and distribute.
+
+## 🚀 API 使用说明
+
+### 新 API 接口
+- **接口地址**: `https://dlmm-api.meteora.ag/pair/all_by_groups`
+- **请求参数**:
+  - `page=0`: 页码（固定为 0，获取所有数据）
+  - `limit=20`: 限制数量（实际返回所有符合条件的数据）
+  - `sort_key=feetvlratio30m`: 按 30分钟 Fee/TVL 比率排序
+  - `hide_low_tvl=200`: 隐藏 TVL < $200 的池子
+
+### 数据结构
+```json
+{
+  "groups": [
+    {
+      "name": "TOKEN-SOL",
+      "pairs": [
+        {
+          "address": "...",
+          "name": "TOKEN-SOL",
+          "liquidity": "1000.0",
+          "fees_24h": 500.0,
+          "fee_tvl_ratio": {
+            "min_30": 25.5
+          },
+          ...
+        }
+      ]
+    }
+  ],
+  "total": 2121
+}
+```
+
+### 使用方式
+1. **一次性加载**: 应用启动时获取所有符合条件的池子数据
+2. **分组数据**: API 按代币对分组返回数据（如 CLIPPY-SOL 组包含多个不同参数的池子）
+3. **预排序数据**: 每组内的池子按 30分钟 Fee/TVL 比率排序
+4. **扁平化处理**: 前端将所有组的池子合并为一个列表
+5. **客户端分页**: 在前端进行分页处理，翻页速度快
+6. **质量过滤**: 只显示有价值的池子（TVL ≥ $200）
+
+### 优势
+- ✅ **减少请求**: 只需一次 API 调用
+- ✅ **快速翻页**: 客户端分页，无需等待
+- ✅ **数据质量**: 预过滤低价值池子
+- ✅ **智能排序**: 最热门的池子排在前面
 
 ## 🌐 GitHub Pages 部署
 

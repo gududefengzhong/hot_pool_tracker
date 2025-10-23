@@ -1,0 +1,17 @@
+{
+  "buildCommand": "python3 fetch_met_data.py && python3 fetch_dune_data.py",
+  "outputDirectory": ".",
+  "public": true,
+  "env": {
+    "DUNE_API_KEY": "@dune_api_key",
+    "DUNE_QUERY_ID": "@dune_query_id",
+    "DUNE_MET_QUERY_ID": "@dune_met_query_id"
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
+
