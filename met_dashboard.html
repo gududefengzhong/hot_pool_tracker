@@ -94,7 +94,7 @@
 
                 // 加载 MET Dune 数据
                 const response = await retryRequest(async () => {
-                    const res = await fetch('/met_dune_data.json');
+                    const res = await fetch('./met_dune_data.json');
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });

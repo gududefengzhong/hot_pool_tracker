@@ -54,3 +54,4 @@ Thumbs.db
 *.tmp
 *.temp
 README.md
+.vercel
