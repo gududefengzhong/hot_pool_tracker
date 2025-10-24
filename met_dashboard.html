@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meteora MET Dashboard</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Meteora MET Dashboard v2.0</title>
     <link rel="icon" type="image/svg+xml" href="./v2.svg">
     <link rel="shortcut icon" href="./v2.svg">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -25,9 +28,9 @@
         // 状态变量
         let metPairs = [];
         let poolWallets = {}; // lbPair -> [wallets]
-        let walletEarnings = {}; // wallet -> { lbPair -> earnings }
+        let poolEarnings = {}; // lbPair -> {wallet -> earnings}
+        let poolInfo = {}; // lbPair -> {name, bin_step, liquidity, base_fee}
         let loading = false;
-        let earningsLoading = new Set();
         let expandedPools = new Set();
 
         // 分页状态
@@ -36,6 +39,7 @@
         let searchTerm = '';
         let sortBy = 'walletCount'; // walletCount, earnings
         let sortOrder = 'desc';
+        let walletPages = {}; // {lbPair: currentPage} - 每个池子的钱包分页
 
         // 重试机制
         const retryRequest = async (requestFn, maxRetries = 3, delay = 1000) => {
@@ -55,124 +59,108 @@
             return `${address.slice(0, 6)}...${address.slice(-6)}`;
         };
 
-        // 格式化数字
+        // 格式化数字（带千分位）
         const formatNumber = (num) => {
             if (!num) return '0.00';
-            return parseFloat(num).toFixed(2);
+            const n = parseFloat(num);
+            return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
 
-        // 获取 MET 池子列表
+        // 加载所有数据（从本地 JSON 文件）
         const fetchMetPairs = async () => {
+            console.log('📥 fetchMetPairs 被调用');
             loading = true;
             render();
             try {
-                const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/pair/all_with_pagination?page=0&limit=100&sort_key=feetvlratio30m&hide_low_tvl=5000&include_token_mints=METvsvVRapdj9cFLzq4Tr43xK4tAjQfwX76z3n6mWQL`);
-                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                    return res.json();
-                });
-
-                if (response.pairs && response.pairs.length > 0) {
-                    metPairs = response.pairs;
-                    await fetchWalletDataFromDune();
-                } else {
-                    metPairs = [];
-                }
+                console.log('🔄 开始调用 fetchWalletDataFromDune...');
+                // 直接从本地文件加载数据，不再请求 Meteora API
+                await fetchWalletDataFromDune();
+                console.log('✅ fetchWalletDataFromDune 完成');
             } catch (error) {
-                console.error('Error fetching MET pairs:', error);
-                alert('Failed to fetch MET pairs. Please check your network connection.');
+                console.error('❌ Error loading data:', error);
+                console.error('❌ Error stack:', error.stack);
+                alert('Failed to load data. Please ensure met_dune_data.json and met_earnings.json exist.');
             } finally {
                 loading = false;
                 render();
+                console.log('✅ fetchMetPairs 完成');
             }
         };
 
-        // 从 Dune 获取钱包数据
+        // 从本地文件加载钱包数据和预计算的收益数据
         const fetchWalletDataFromDune = async () => {
             try {
-                console.log(`获取 ${metPairs.length} 个 MET 池子的钱包数据...`);
+                console.log('📂 开始加载本地数据文件...');
+                console.log('🔍 当前 URL:', window.location.href);
 
                 // 加载 MET Dune 数据
-                const response = await retryRequest(async () => {
-                    const res = await fetch('./met_dune_data.json');
+                console.log('📥 正在请求 met_dune_data.json...');
+                const duneResponse = await retryRequest(async () => {
+                    const res = await fetch('./met_dune_data.json?t=' + Date.now());
+                    console.log('📊 met_dune_data.json 响应状态:', res.status);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
                 });
+                console.log('✅ met_dune_data.json 加载成功');
 
-                // 处理返回的钱包数据
-                poolWallets = {};
-                if (response.result && response.result.rows) {
-                    response.result.rows.forEach(row => {
-                        const lbPair = row.lbPair;
-                        const wallet_array = row.wallet_array || [];
-
-                        // 只处理 MET 池子中的数据
-                        if (metPairs.some(p => p.address === lbPair)) {
-                            poolWallets[lbPair] = wallet_array;
-                            wallet_array.forEach(wallet => {
-                                if (!walletEarnings[wallet]) {
-                                    walletEarnings[wallet] = {};
-                                }
-                                walletEarnings[wallet][lbPair] = { loading: true };
-                            });
-                        }
-                    });
-                }
-                render();
-            } catch (error) {
-                console.error('Error fetching wallet data from Dune:', error);
-                alert('Failed to load wallet data. Please run: python3 fetch_met_data.py');
-            }
-        };
-
-        // 获取钱包收益（带重试）
-        const fetchWalletEarnings = async (wallet, lbPair) => {
-            const key = `${wallet}_${lbPair}`;
-            earningsLoading.add(key);
-            render();
-
-            try {
-                const response = await retryRequest(async () => {
-                    const res = await fetch(`https://dlmm-api.meteora.ag/wallet/${wallet}/${lbPair}/earning`);
+                // 加载预计算的收益数据
+                console.log('📥 正在请求 met_earnings.json...');
+                const earningsResponse = await retryRequest(async () => {
+                    const res = await fetch('./met_earnings.json?t=' + Date.now());
+                    console.log('📊 met_earnings.json 响应状态:', res.status);
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return res.json();
-                }, 3, 500);
+                });
+                console.log('✅ met_earnings.json 加载成功');
 
-                if (!walletEarnings[wallet]) {
-                    walletEarnings[wallet] = {};
+                // 处理钱包数据
+                poolWallets = {};
+                if (duneResponse.result && duneResponse.result.rows) {
+                    duneResponse.result.rows.forEach(row => {
+                        const lbPair = row.lbPair;
+                        const wallet_array = row.wallet_array || [];
+                        poolWallets[lbPair] = wallet_array;
+                    });
                 }
-                walletEarnings[wallet][lbPair] = response;
-            } catch (error) {
-                console.error(`Error fetching earnings for ${wallet}:`, error);
-                if (!walletEarnings[wallet]) {
-                    walletEarnings[wallet] = {};
-                }
-                walletEarnings[wallet][lbPair] = { error: true };
-            } finally {
-                earningsLoading.delete(key);
+
+                // 加载预计算的收益数据
+                poolEarnings = earningsResponse.data || {};
+                console.log(`✅ 加载了 ${Object.keys(poolEarnings).length} 个池子的收益数据`);
+                console.log(`📊 数据更新时间: ${earningsResponse.fetched_at}`);
+
+                // 加载池子信息
+                poolInfo = earningsResponse.pool_info || {};
+                console.log(`✅ 加载了 ${Object.keys(poolInfo).length} 个池子的详细信息`);
+
+                // 从池子信息构建 metPairs 数组
+                metPairs = Object.keys(poolInfo).map(address => ({
+                    address: address,
+                    name: poolInfo[address].name,
+                    bin_step: poolInfo[address].bin_step,
+                    liquidity: poolInfo[address].liquidity,
+                    base_fee_percentage: poolInfo[address].base_fee_percentage,
+                    fees_24h: 0  // 暂时设为 0，因为我们没有实时数据
+                }));
+
+                console.log(`✅ 加载了 ${metPairs.length} 个池子`);
+
                 render();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                alert('Failed to load data. Please run: python3 fetch_met_data.py && python3 fetch_met_earnings.py');
             }
         };
 
-        // 获取所有钱包的收益
-        const fetchAllEarnings = async () => {
-            const allWallets = Object.keys(walletEarnings);
-            for (const wallet of allWallets) {
-                const pairs = Object.keys(walletEarnings[wallet]);
-                for (const lbPair of pairs) {
-                    if (!walletEarnings[wallet][lbPair] || walletEarnings[wallet][lbPair].loading) {
-                        await fetchWalletEarnings(wallet, lbPair);
-                    }
-                }
-            }
+        // 获取钱包的收益数据（从预计算的数据中）
+        const getWalletEarnings = (wallet, lbPair) => {
+            return poolEarnings[lbPair]?.[wallet] || null;
         };
 
         // 获取池子的总收益
         const calculatePoolTotalEarnings = (lbPair) => {
-            const wallets = poolWallets[lbPair] || [];
+            const earnings = poolEarnings[lbPair] || {};
             let total = 0;
-            wallets.forEach(wallet => {
-                const earning = walletEarnings[wallet]?.[lbPair];
+            Object.values(earnings).forEach(earning => {
                 if (earning && earning.total_fee_usd_claimed) {
                     total += parseFloat(earning.total_fee_usd_claimed) || 0;
                 }
@@ -192,11 +180,11 @@
                 );
             }
 
-            // 按 fees_24h 倒序排序（默认）
+            // 按总收益倒序排序（默认）
             pools.sort((a, b) => {
-                const aFees = parseFloat(a.fees_24h) || 0;
-                const bFees = parseFloat(b.fees_24h) || 0;
-                return bFees - aFees;
+                const aEarnings = calculatePoolTotalEarnings(a.address);
+                const bEarnings = calculatePoolTotalEarnings(b.address);
+                return bEarnings - aEarnings;
             });
 
             return pools;
@@ -241,13 +229,38 @@
             render();
         };
 
-        // 渲染池子钱包列表
+        // 获取所有钱包的总收益排行榜
+        const getTopWalletsByFees = (limit = 30) => {
+            const walletFeesMap = new Map(); // wallet -> total fees
+
+            // 遍历所有池子的所有钱包
+            Object.keys(poolEarnings).forEach(lbPair => {
+                const earnings = poolEarnings[lbPair];
+                Object.keys(earnings).forEach(wallet => {
+                    const fees = parseFloat(earnings[wallet]?.total_fee_usd_claimed) || 0;
+                    const currentFees = walletFeesMap.get(wallet) || 0;
+                    walletFeesMap.set(wallet, currentFees + fees);
+                });
+            });
+
+            // 转换为数组并排序
+            const walletArray = Array.from(walletFeesMap.entries())
+                .map(([wallet, fees]) => ({ wallet, fees }))
+                .sort((a, b) => b.fees - a.fees)
+                .slice(0, limit);
+
+            return walletArray;
+        };
+
+        // 渲染池子钱包列表（带分页）
         const renderPoolWallets = (lbPair) => {
             const wallets = poolWallets[lbPair] || [];
+            const earnings = poolEarnings[lbPair] || {};
+
             const walletsList = wallets
                 .map(wallet => ({
                     wallet,
-                    earning: walletEarnings[wallet]?.[lbPair]
+                    earning: earnings[wallet]
                 }))
                 .sort((a, b) => {
                     const aEarning = parseFloat(a.earning?.total_fee_usd_claimed) || 0;
@@ -255,29 +268,166 @@
                     return bEarning - aEarning;
                 });
 
+            // 分页逻辑
+            const walletsPerPage = 10;
+            const currentWalletPage = walletPages[lbPair] || 1;
+            const totalWalletPages = Math.ceil(walletsList.length / walletsPerPage);
+            const startIdx = (currentWalletPage - 1) * walletsPerPage;
+            const endIdx = startIdx + walletsPerPage;
+            const paginatedWallets = walletsList.slice(startIdx, endIdx);
+
             return `
                 <div class="border-t bg-gray-50 p-4">
                     <h4 class="font-semibold mb-3 flex items-center gap-2">
                         <i data-lucide="users" class="w-4 h-4"></i>
                         Wallets (${wallets.length})
                     </h4>
-                    <div class="space-y-2 max-h-96 overflow-y-auto">
-                        ${walletsList.map(({ wallet, earning }) => {
-                            const isLoading = earningsLoading.has(`${wallet}_${lbPair}`);
-                            const hasError = earning?.error;
-                            const usdValue = earning?.total_fee_usd_claimed ? `$${formatNumber(earning.total_fee_usd_claimed)}` : '-';
-                            
-                            return `
-                                <div class="flex items-center justify-between p-3 bg-white rounded border text-sm">
-                                    <div class="font-mono text-xs text-gray-600 flex-1">${formatAddress(wallet)}</div>
-                                    <div class="text-right">
-                                        ${isLoading ? `<i data-lucide="loader" class="w-4 h-4 animate-spin inline"></i>` : 
-                                          hasError ? `<span class="text-red-500 text-xs">Error</span>` :
-                                          `<div class="font-semibold text-green-600">${usdValue}</div>`}
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
+
+                    <div class="overflow-x-auto bg-white rounded-lg border">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b bg-gray-50">
+                                    <th class="text-left py-2 px-4 font-semibold text-gray-700 text-sm">Wallet Address</th>
+                                    <th class="text-center py-2 px-4 font-semibold text-gray-700 text-sm">Jupiter</th>
+                                    <th class="text-center py-2 px-4 font-semibold text-gray-700 text-sm">LP Agent</th>
+                                    <th class="text-right py-2 px-4 font-semibold text-gray-700 text-sm">Fees</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${paginatedWallets.map(({ wallet, earning }, index) => {
+                                    const usdValue = earning?.total_fee_usd_claimed ? `$${formatNumber(earning.total_fee_usd_claimed)}` : '-';
+                                    const lpAgentUrl = `https://app.lpagent.io/portfolio?address=${wallet}`;
+                                    const jupiterUrl = `https://jup.ag/portfolio/${wallet}`;
+                                    const rowColor = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+
+                                    return `
+                                        <tr class="${rowColor} hover:bg-blue-50 transition-colors border-b border-gray-100">
+                                            <td class="py-2 px-4">
+                                                <span class="font-mono text-sm text-gray-800">${wallet}</span>
+                                            </td>
+                                            <td class="py-2 px-4 text-center">
+                                                <a href="${jupiterUrl}" target="_blank"
+                                                   class="inline-block px-3 py-1 text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium">
+                                                    JUP
+                                                </a>
+                                            </td>
+                                            <td class="py-2 px-4 text-center">
+                                                <a href="${lpAgentUrl}" target="_blank"
+                                                   class="inline-block px-3 py-1 text-xs bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors font-medium">
+                                                    LP
+                                                </a>
+                                            </td>
+                                            <td class="py-2 px-4 text-right">
+                                                <span class="font-semibold text-green-600">${usdValue}</span>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${totalWalletPages > 1 ? `
+                        <div class="flex items-center justify-center gap-2 mt-4">
+                            <button
+                                onclick="changeWalletPage('${lbPair}', ${currentWalletPage - 1})"
+                                ${currentWalletPage === 1 ? 'disabled' : ''}
+                                class="px-3 py-1 bg-white border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Previous
+                            </button>
+                            <span class="text-sm text-gray-600">
+                                Page ${currentWalletPage} of ${totalWalletPages}
+                            </span>
+                            <button
+                                onclick="changeWalletPage('${lbPair}', ${currentWalletPage + 1})"
+                                ${currentWalletPage === totalWalletPages ? 'disabled' : ''}
+                                class="px-3 py-1 bg-white border rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        };
+
+        // 切换钱包分页
+        const changeWalletPage = (lbPair, newPage) => {
+            walletPages[lbPair] = newPage;
+            render();
+        };
+
+        // 渲染 MET Fees Leader 排行榜
+        const renderFeesLeaderboard = () => {
+            const topWallets = getTopWalletsByFees(30);
+
+            if (topWallets.length === 0) {
+                return '';
+            }
+
+            return `
+                <div class="max-w-7xl mx-auto px-4 py-8">
+                    <div class="bg-white rounded-lg shadow-lg p-6">
+                        <div class="flex items-center gap-3 mb-6">
+                            <i data-lucide="trophy" class="w-6 h-6 text-yellow-500"></i>
+                            <h2 class="text-2xl font-bold text-gray-800">MET Fees Leader</h2>
+                            <span class="text-sm text-gray-500">(Top 30 Wallets)</span>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-300">
+                                        <th class="text-left py-3 px-4 font-semibold text-gray-700">#</th>
+                                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Wallet Address</th>
+                                        <th class="text-center py-3 px-4 font-semibold text-gray-700">Jupiter</th>
+                                        <th class="text-center py-3 px-4 font-semibold text-gray-700">LP Agent</th>
+                                        <th class="text-right py-3 px-4 font-semibold text-gray-700">Total Fees</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${topWallets.map((item, index) => {
+                                        const lpAgentUrl = `https://app.lpagent.io/portfolio?address=${item.wallet}`;
+                                        const jupiterUrl = `https://jup.ag/portfolio/${item.wallet}`;
+                                        const rowColor = index === 0 ? 'bg-yellow-50' :
+                                                        index === 1 ? 'bg-gray-50' :
+                                                        index === 2 ? 'bg-orange-50' :
+                                                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                                        const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+
+                                        return `
+                                            <tr class="${rowColor} hover:bg-blue-50 transition-colors border-b border-gray-200">
+                                                <td class="py-3 px-4">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="font-bold text-gray-700">${index + 1}</span>
+                                                        ${rankIcon ? `<span class="text-lg">${rankIcon}</span>` : ''}
+                                                    </div>
+                                                </td>
+                                                <td class="py-3 px-4">
+                                                    <span class="font-mono text-sm text-gray-800">${item.wallet}</span>
+                                                </td>
+                                                <td class="py-3 px-4 text-center">
+                                                    <a href="${jupiterUrl}" target="_blank"
+                                                       class="inline-block px-4 py-1.5 text-sm bg-purple-100 text-purple-700 hover:bg-purple-200 rounded transition-colors font-medium">
+                                                        Jupiter
+                                                    </a>
+                                                </td>
+                                                <td class="py-3 px-4 text-center">
+                                                    <a href="${lpAgentUrl}" target="_blank"
+                                                       class="inline-block px-4 py-1.5 text-sm bg-green-100 text-green-700 hover:bg-green-200 rounded transition-colors font-medium">
+                                                        LP Agent
+                                                    </a>
+                                                </td>
+                                                <td class="py-3 px-4 text-right">
+                                                    <span class="font-bold text-green-600 text-lg">$${formatNumber(item.fees)}</span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             `;
@@ -298,27 +448,48 @@
             const isExpanded = expandedPools.has(pool.address);
             const walletCount = (poolWallets[pool.address] || []).length;
             const totalEarnings = calculatePoolTotalEarnings(pool.address);
-            const fees24h = parseFloat(pool.fees_24h) || 0;
-            const liquidity = parseFloat(pool.liquidity) || 0;
-            const binStep = pool.bin_step || 0;
-            const baseFee = pool.base_fee_percentage || 0;
+
+            // 优先使用 poolInfo 中的数据，如果没有则使用 pool 中的数据
+            const info = poolInfo[pool.address] || {};
+            const poolName = info.name || pool.name || 'Unknown';
+            const liquidity = parseFloat(info.liquidity || pool.liquidity) || 0;
+            const binStep = info.bin_step || pool.bin_step || 0;
+            const baseFee = info.base_fee_percentage || pool.base_fee_percentage || 0;
+            const meteoraUrl = `https://app.meteora.ag/dlmm/${pool.address}?referrer=rochestor`;
 
             return `
-                <div class="border rounded-lg overflow-hidden">
-                    <div class="flex items-center justify-between p-4 bg-white hover:bg-gray-50 cursor-pointer" onclick="togglePool('${pool.address}')">
-                        <div class="flex items-center gap-3 flex-1">
-                            <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4"></i>
-                            <div>
-                                <div class="font-semibold">${pool.name || 'Unknown'}</div>
-                                <div class="font-mono text-xs text-gray-600">${formatAddress(pool.address)}</div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    Bin Step: ${binStep} | Base Fee: ${baseFee}% | Liquidity: $${formatLargeNumber(liquidity)} | 24h Fees: $${formatNumber(fees24h)}
+                <div class="border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                    <div class="p-4 hover:bg-gray-50 cursor-pointer transition-colors" onclick="togglePool('${pool.address}')">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-3 flex-1">
+                                <i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4 text-gray-500"></i>
+                                <div>
+                                    <a href="${meteoraUrl}" target="_blank" onclick="event.stopPropagation()" class="font-semibold text-lg text-blue-600 hover:text-blue-800 hover:underline">
+                                        ${poolName}
+                                    </a>
+                                    <div class="font-mono text-xs text-gray-500 mt-1">
+                                        ${formatAddress(pool.address)}
+                                    </div>
                                 </div>
                             </div>
+                            <div class="text-right">
+                                <div class="text-sm text-gray-600">${walletCount} wallets</div>
+                                <div class="font-semibold text-green-600 text-lg">$${formatNumber(totalEarnings)}</div>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <div class="text-sm text-gray-600">${walletCount} wallets</div>
-                            <div class="font-semibold text-green-600">$${formatNumber(totalEarnings)}</div>
+                        <div class="flex gap-2 mt-2">
+                            <div class="px-3 py-2 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-1">
+                                <div class="text-xs text-gray-600">Bin Step</div>
+                                <div class="font-semibold text-sm text-gray-800">${binStep}</div>
+                            </div>
+                            <div class="px-3 py-2 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors flex-1">
+                                <div class="text-xs text-gray-600">Base Fee</div>
+                                <div class="font-semibold text-sm text-gray-800">${baseFee}%</div>
+                            </div>
+                            <div class="px-3 py-2 bg-green-50 hover:bg-green-100 rounded-lg transition-colors flex-1">
+                                <div class="text-xs text-gray-600">Liquidity</div>
+                                <div class="font-semibold text-sm text-gray-800">$${formatLargeNumber(liquidity)}</div>
+                            </div>
                         </div>
                     </div>
                     ${isExpanded ? renderPoolWallets(pool.address) : ''}
@@ -329,10 +500,17 @@
         // 主渲染函数
         const render = () => {
             const app = document.getElementById('app');
+            if (!app) {
+                console.error('❌ #app element not found!');
+                return;
+            }
+
             const filteredPools = getFilteredAndSortedPools();
             const currentPools = getCurrentPagePools();
             const totalPages = getTotalPages();
-            const totalWallets = Object.keys(walletEarnings).length;
+
+            // 计算总钱包数
+            const totalWallets = Object.values(poolWallets).reduce((sum, wallets) => sum + wallets.length, 0);
             const totalEarnings = filteredPools.reduce((sum, p) => sum + calculatePoolTotalEarnings(p.address), 0);
 
             app.innerHTML = `
@@ -340,18 +518,11 @@
                     <!-- Header -->
                     <div class="bg-white border-b sticky top-0 z-10">
                         <div class="max-w-7xl mx-auto px-4 py-4">
-                            <div class="flex items-center justify-between mb-4">
+                            <div class="mb-4">
                                 <h1 class="text-2xl font-bold flex items-center gap-2">
                                     <i data-lucide="trending-up" class="w-6 h-6"></i>
                                     Meteora MET Dashboard
                                 </h1>
-                                <button
-                                    onclick="fetchMetPairs()"
-                                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-2"
-                                >
-                                    <i data-lucide="refresh-cw" class="w-4 h-4 ${loading ? 'animate-spin' : ''}"></i>
-                                    Refresh
-                                </button>
                             </div>
 
                             <!-- Stats -->
@@ -388,12 +559,6 @@
                                     class="px-3 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
                                 >
                                     Search
-                                </button>
-                                <button
-                                    onclick="fetchAllEarnings()"
-                                    class="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                                >
-                                    Load All Earnings
                                 </button>
                             </div>
                         </div>
@@ -444,15 +609,102 @@
                             ` : ''}
                         `}
                     </div>
+
+                    <!-- MET Fees Leader 排行榜 -->
+                    ${!loading && metPairs.length > 0 ? renderFeesLeaderboard() : ''}
+
+                    <!-- 免责声明和页脚 -->
+                    <div class="max-w-7xl mx-auto px-4 py-8">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <!-- Support 卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+                                <div class="flex flex-col items-center gap-4">
+                                    <div class="flex items-center gap-2">
+                                        <i data-lucide="coffee" class="w-6 h-6 text-amber-600"></i>
+                                        <h3 class="text-lg font-semibold text-gray-800">Support</h3>
+                                    </div>
+                                    <p class="text-gray-600 text-sm">
+                                        If this tool has been helpful for your DeFi journey, consider supporting its development.
+                                    </p>
+                                    <a
+                                        href="https://tiplink.io/blinks/donate?dest=G4FEgdE3yduy8WexqLWda3SGYBTgnydP37GnCcZRJjPR"
+                                        target="_blank"
+                                        class="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium rounded-lg transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                                    >
+                                        <i data-lucide="coffee" class="w-4 h-4"></i>
+                                        Buy me a coffee ☕
+                                    </a>
+                                    <p class="text-xs text-gray-500">
+                                        Powered by TipLink
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Disclaimer 卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <i data-lucide="alert-triangle" class="w-6 h-6 text-yellow-500"></i>
+                                    <h3 class="text-lg font-semibold text-gray-800">Disclaimer</h3>
+                                </div>
+                                <div class="text-sm text-gray-600 space-y-2">
+                                    <p>This tool is for informational purposes only and does not constitute financial advice.</p>
+                                    <p>Cryptocurrency and DeFi investments carry significant risks, including potential loss of principal.</p>
+                                    <p>Always conduct your own research and consult qualified financial advisors.</p>
+                                </div>
+                            </div>
+
+                            <!-- Connect 卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <i data-lucide="users" class="w-6 h-6 text-blue-500"></i>
+                                    <h3 class="text-lg font-semibold text-gray-800">Connect</h3>
+                                </div>
+                                <div class="space-y-3">
+                                    <a href="https://x.com/rochestor_mu" target="_blank"
+                                       class="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors">
+                                        <i data-lucide="twitter" class="w-4 h-4"></i>
+                                        <span class="text-sm">Follow on X (Twitter)</span>
+                                    </a>
+                                    <a href="https://github.com/gududefengzhong" target="_blank"
+                                       class="flex items-center gap-2 text-gray-700 hover:text-gray-900 transition-colors">
+                                        <i data-lucide="github" class="w-4 h-4"></i>
+                                        <span class="text-sm">View on GitHub</span>
+                                    </a>
+                                    <a href="https://app.lpagent.io/?referral=GE6Csiu" target="_blank"
+                                       class="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors">
+                                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                                        <span class="text-sm">Try LP Agent</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 页脚版权信息 -->
+                        <div class="text-center py-8 mt-8 border-t border-gray-200">
+                            <div class="text-sm text-gray-500">
+                                <div>Built with ❤️ for the LP Army</div>
+                                <div class="mt-1">© 2025 Meteora LB Pair Tracker</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
 
             // 初始化 Lucide 图标
-            lucide.createIcons();
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                try {
+                    lucide.createIcons();
+                } catch (e) {
+                    console.warn('Lucide icons initialization failed:', e);
+                }
+            }
         };
 
         // 初始化
         window.addEventListener('load', () => {
+            console.log('🚀 页面加载完成，开始初始化...');
+            loading = true;
+            render(); // 先渲染加载状态
             fetchMetPairs();
         });
     </script>
